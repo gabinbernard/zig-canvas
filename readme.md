@@ -7,6 +7,9 @@ A zig library to create, edit and export canvas.
 And here's a "Hello world" zig-canvas program which creates a 100x100 canvas, draws a blue square at the middle and saves it as "./image.bmp":
 
 ```zig
+const std = @import("std");
+const createCanvas = @import("./lib.zig");
+
 pub fn main() !u8 {
     // Create an allocator
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
