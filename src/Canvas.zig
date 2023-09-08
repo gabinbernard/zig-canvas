@@ -22,22 +22,22 @@ pub fn Canvas(comptime colorMode: ColorModes) type {
         /// Fill the whole canvas using `self.fillStyle`
         pub fn fillCanvas(self: @This()) void {
             if (styleType == u8) {
-                for (0..self.width) |xCoord| {
-                    for (0..self.height) |yCoord| {
+                for (0..self.height) |yCoord| {
+                    for (0..self.width) |xCoord| {
                         self.bytes[xCoord + yCoord * self.width] = @truncate(self.fillStyle);
                     }
                 }
             } else if (styleType == u24) {
-                for (0..self.width) |xCoord| {
-                    for (0..self.height) |yCoord| {
+                for (0..self.height) |yCoord| {
+                    for (0..self.width) |xCoord| {
                         self.bytes[(xCoord + yCoord * self.width) * 3] = @truncate(self.fillStyle >> 16);
                         self.bytes[(xCoord + yCoord * self.width) * 3 + 1] = @truncate(self.fillStyle >> 8 & 0xff);
                         self.bytes[(xCoord + yCoord * self.width) * 3 + 2] = @truncate(self.fillStyle & 0xff);
                     }
                 }
             } else if (styleType == u32) {
-                for (0..self.width) |xCoord| {
-                    for (0..self.height) |yCoord| {
+                for (0..self.height) |yCoord| {
+                    for (0..self.width) |xCoord| {
                         self.bytes[(xCoord + yCoord * self.width) * 4] = @truncate(self.fillStyle >> 24);
                         self.bytes[(xCoord + yCoord * self.width) * 4 + 1] = @truncate(self.fillStyle >> 16 & 0xff);
                         self.bytes[(xCoord + yCoord * self.width) * 4 + 2] = @truncate(self.fillStyle >> 8 & 0xff);
@@ -51,26 +51,34 @@ pub fn Canvas(comptime colorMode: ColorModes) type {
         pub fn fillRect(self: @This(), x: u16, y: u16, w: u16, h: u16) void {
             if (x > self.width or y > self.height) return;
             if (styleType == u8) {
-                for (x..x + w) |xCoord| {
-                    for (y..y + h) |yCoord| {
-                        self.bytes[xCoord + yCoord * self.width] = @truncate(self.fillStyle);
+                const l: u8 = @truncate(self.fillStyle);
+                for (y..y + h) |yCoord| {
+                    for (x..x + w) |xCoord| {
+                        self.bytes[xCoord + yCoord * self.width] = l;
                     }
                 }
             } else if (styleType == u24) {
-                for (x..x + w) |xCoord| {
-                    for (y..y + h) |yCoord| {
-                        self.bytes[(xCoord + yCoord * self.width) * 3] = @truncate(self.fillStyle >> 16);
-                        self.bytes[(xCoord + yCoord * self.width) * 3 + 1] = @truncate(self.fillStyle >> 8 & 0xff);
-                        self.bytes[(xCoord + yCoord * self.width) * 3 + 2] = @truncate(self.fillStyle & 0xff);
+                const r: u8 = @truncate(self.fillStyle >> 16);
+                const g: u8 = @truncate(self.fillStyle >> 8 & 0xff);
+                const b: u8 = @truncate(self.fillStyle & 0xff);
+                for (y..y + h) |yCoord| {
+                    for (x..x + w) |xCoord| {
+                        self.bytes[(xCoord + yCoord * self.width) * 3] = r;
+                        self.bytes[(xCoord + yCoord * self.width) * 3 + 1] = g;
+                        self.bytes[(xCoord + yCoord * self.width) * 3 + 2] = b;
                     }
                 }
             } else if (styleType == u32) {
-                for (x..x + w) |xCoord| {
-                    for (y..y + h) |yCoord| {
-                        self.bytes[(xCoord + yCoord * self.width) * 4] = @truncate(self.fillStyle >> 24);
-                        self.bytes[(xCoord + yCoord * self.width) * 4 + 1] = @truncate(self.fillStyle >> 16 & 0xff);
-                        self.bytes[(xCoord + yCoord * self.width) * 4 + 2] = @truncate(self.fillStyle >> 8 & 0xff);
-                        self.bytes[(xCoord + yCoord * self.width) * 4 + 3] = @truncate(self.fillStyle & 0xff);
+                const r: u8 = @truncate(self.fillStyle >> 24);
+                const g: u8 = @truncate(self.fillStyle >> 16 & 0xff);
+                const b: u8 = @truncate(self.fillStyle >> 8 & 0xff);
+                const a: u8 = @truncate(self.fillStyle & 0xff);
+                for (y..y + h) |yCoord| {
+                    for (x..x + w) |xCoord| {
+                        self.bytes[(xCoord + yCoord * self.width) * 4] = r;
+                        self.bytes[(xCoord + yCoord * self.width) * 4 + 1] = g;
+                        self.bytes[(xCoord + yCoord * self.width) * 4 + 2] = b;
+                        self.bytes[(xCoord + yCoord * self.width) * 4 + 3] = a;
                     }
                 }
             }
@@ -95,13 +103,54 @@ pub fn Canvas(comptime colorMode: ColorModes) type {
         }
 
         /// Apply the `shader` function to each byte of the canvas
-        pub fn applyByteShader(comptime shader: fn (u64, u8) u8) void {
-            _ = shader;
+        pub fn applyByteShader(self: @This(), comptime shader: fn (u64, u8) u8) void {
+            for (self.bytes, 0..) |value, index| {
+                self.bytes[index] = shader(index, value);
+            }
         }
 
         /// Apply the `shader` function to each pixel of the canvas
-        pub fn applyPixelShader(comptime shader: fn (u16, u16, styleType) styleType) void {
-            _ = shader;
+        pub fn applyPixelShader(self: @This(), comptime shader: fn (u16, u16, styleType) styleType) void {
+            if (styleType == u8) {
+                for (0..self.height) |yCoord| {
+                    for (0..self.width) |xCoord| {
+                        const pixelRColor = self.bytes[(xCoord + yCoord * self.width) * 3];
+                        const pixelGColor = self.bytes[(xCoord + yCoord * self.width) * 3 + 1];
+                        const pixelBColor = self.bytes[(xCoord + yCoord * self.width) * 3 + 2];
+                        const pixelColor = (pixelRColor << 4) | (pixelGColor << 2) | (pixelBColor);
+                        const newColor = shader(@as(u16, xCoord), @as(u16, yCoord), pixelColor);
+                        self.bytes[(xCoord + yCoord * self.width) * 3] = newColor;
+                    }
+                }
+            } else if (styleType == u24) {
+                for (0..self.width) |xCoord| {
+                    for (0..self.height) |yCoord| {
+                        const pixelRColor = self.bytes[(xCoord + yCoord * self.width) * 3];
+                        const pixelGColor = self.bytes[(xCoord + yCoord * self.width) * 3 + 1];
+                        const pixelBColor = self.bytes[(xCoord + yCoord * self.width) * 3 + 2];
+                        const pixelColor = @as(u24, pixelRColor << 4) | @as(u24, pixelGColor << 2) | (pixelBColor);
+                        const newColor = shader(@as(u16, xCoord), @as(u16, yCoord), pixelColor);
+                        self.bytes[(xCoord + yCoord * self.width) * 3] = @truncate(newColor >> 16);
+                        self.bytes[(xCoord + yCoord * self.width) * 3 + 1] = @truncate(newColor >> 8 & 0xff);
+                        self.bytes[(xCoord + yCoord * self.width) * 3 + 2] = @truncate(newColor & 0xff);
+                    }
+                }
+            } else if (styleType == u32) {
+                for (0..self.width) |xCoord| {
+                    for (0..self.height) |yCoord| {
+                        var pixelRColor = self.bytes[(xCoord + yCoord * self.width) * 4];
+                        var pixelGColor = self.bytes[(xCoord + yCoord * self.width) * 4 + 1];
+                        var pixelBColor = self.bytes[(xCoord + yCoord * self.width) * 4 + 2];
+                        var pixelAColor = self.bytes[(xCoord + yCoord * self.width) * 4 + 3];
+                        const pixelColor = @as(u32, pixelRColor << 6) + @as(u32, pixelGColor << 4) + @as(u32, pixelBColor << 2) + pixelAColor;
+                        const newColor = shader(@truncate(xCoord), @truncate(yCoord), pixelColor);
+                        self.bytes[(xCoord + yCoord * self.width) * 4] = @truncate(newColor >> 24);
+                        self.bytes[(xCoord + yCoord * self.width) * 4 + 1] = @truncate(newColor >> 16 & 0xff);
+                        self.bytes[(xCoord + yCoord * self.width) * 4 + 2] = @truncate(newColor >> 8 & 0xff);
+                        self.bytes[(xCoord + yCoord * self.width) * 4 + 3] = @truncate(newColor & 0xff);
+                    }
+                }
+            }
         }
 
         /// Utility function to get 4 bytes from u64 (for BMP sizes)
